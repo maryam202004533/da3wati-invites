@@ -5,6 +5,7 @@ import * as React from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { UserCheck, Camera, CheckCircle2, XCircle, AlertTriangle, ShieldCheck } from "lucide-react";
+import { Html5Qrcode } from "html5-qrcode";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({
@@ -22,9 +23,7 @@ function ScannerPage() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [loginError, setLoginError] = React.useState(false);
 
-  const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const [cameraError, setCameraError] = React.useState<string | null>(null);
-
   const [scanResult, setScanResult] = React.useState<{
     status: "success" | "already_used" | "error" | null;
     message: string;
@@ -32,6 +31,8 @@ function ScannerPage() {
   }>({ status: null, message: "" });
 
   const [manualCode, setManualCode] = React.useState("");
+  const scannerRef = React.useRef<Html5Qrcode | null>(null);
+  const isScanningRef = React.useRef(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,31 +63,54 @@ function ScannerPage() {
     }
   };
 
+  // تشغيل ماسح الكاميرا عبر مكتبة html5-qrcode
   React.useEffect(() => {
     if (!isAuthenticated) return;
 
-    let stream: MediaStream | null = null;
+    const qrRegionId = "reader";
+    let html5QrCode: Html5Qrcode | null = null;
 
-    async function startCamera() {
+    const startScanner = async () => {
       try {
         setCameraError(null);
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+        html5QrCode = new Html5Qrcode(qrRegionId);
+        scannerRef.current = html5QrCode;
+
+        await html5QrCode.start(
+          { facingMode: "environment" },
+          {
+            fps: 10,
+            qrbox: { width: 250, height: 250 },
+          },
+          (decodedText) => {
+            if (!isScanningRef.current) {
+              isScanningRef.current = true;
+              verifyGuestCode(decodedText);
+              // إيقاف مؤقت لمنع التكرار السريع ثم إعادة التفعيل
+              setTimeout(() => {
+                isScanningRef.current = false;
+              }, 3000);
+            }
+          },
+          (errorMessage) => {
+            // أخطاء المسح المعتادة أثناء البحث عن الكود يتم تجاهلها لتجنب إزعاج المستخدم
+          }
+        );
       } catch (err) {
-        console.error("Camera Error:", err);
+        console.error("Error starting QR scanner:", err);
         setCameraError("تعذر الوصول إلى الكاميرا. يرجى التأكد من السماح للمتصفح بالوصول للكاميرا.");
       }
-    }
+    };
 
-    startCamera();
+    // تأخير بسيط لضمان ظهور العنصر في الصفحة
+    const timer = setTimeout(() => {
+      startScanner();
+    }, 500);
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
+      clearTimeout(timer);
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch((err) => console.error("Failed to stop scanner", err));
       }
     };
   }, [isAuthenticated]);
@@ -145,23 +169,19 @@ function ScannerPage() {
               </button>
             </div>
 
-            <div className="relative mx-auto w-full aspect-square max-w-[280px] rounded-2xl bg-black overflow-hidden border-2 border-[color:var(--gold)] flex items-center justify-center">
+            {/* حاوية الكاميرا التي تستخدمها مكتبة html5-qrcode */}
+            <div className="relative mx-auto w-full max-w-[280px] rounded-2xl bg-black overflow-hidden border-2 border-[color:var(--gold)]">
               {cameraError ? (
-                <div className="p-4 text-xs text-rose-400 text-center">
+                <div className="p-8 text-xs text-rose-400 text-center">
                   <Camera className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   {cameraError}
                 </div>
               ) : (
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
+                <div id="reader" className="w-full"></div>
               )}
             </div>
 
+            {/* التحقق اليدوي الاحتياطي */}
             <div className="mt-6">
               <div className="flex gap-2">
                 <input
@@ -180,6 +200,7 @@ function ScannerPage() {
               </div>
             </div>
 
+            {/* نتيجة التحقق */}
             {scanResult.status && (
               <div
                 className={`mt-6 rounded-2xl p-4 text-right transition-all ${
