@@ -5,8 +5,6 @@ import * as React from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { UserCheck, Camera, CheckCircle2, XCircle, AlertTriangle, ShieldCheck } from "lucide-react";
-import jsQR from "jsqr"; // مكتبة قراءة الباركود من الكاميرا
-// import { supabase } from "@/utils/supabase"; 
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({
@@ -25,7 +23,6 @@ function ScannerPage() {
   const [loginError, setLoginError] = React.useState(false);
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [cameraError, setCameraError] = React.useState<string | null>(null);
 
   const [scanResult, setScanResult] = React.useState<{
@@ -35,9 +32,7 @@ function ScannerPage() {
   }>({ status: null, message: "" });
 
   const [manualCode, setManualCode] = React.useState("");
-  const lastScannedRef = React.useRef<string | null>(null);
 
-  // التحقق من اسم المستخدم
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (usernameInput.trim() === ADMIN_USERNAME) {
@@ -48,79 +43,29 @@ function ScannerPage() {
     }
   };
 
-  // دالة التحقق من الضيف (تتصل بـ Supabase أو تحاكيها)
-  const verifyGuestCode = async (guestNameInput: string) => {
+  const verifyGuestCode = (guestNameInput: string) => {
     const trimmedName = guestNameInput.trim();
-    if (!trimmedName || lastScannedRef.current === trimmedName) return;
-    
-    // منع التكرار السريع لنفس القراءة من الكاميرا
-    lastScannedRef.current = trimmedName;
-    setTimeout(() => { lastScannedRef.current = null; }, 3000);
+    if (!trimmedName) return;
 
-    try {
-      /* 
-      // 1. البحث عن الضيف في جدول guests بالاسم الحقيقي عبر Supabase
-      const { data: guest, error } = await supabase
-        .from("guests")
-        .select("*")
-        .eq("name", trimmedName)
-        .single();
-
-      if (error || !guest) {
-        setScanResult({
-          status: "error",
-          message: "اسم الضيف غير مسجل في القائمة",
-        });
-        return;
-      }
-
-      // 2. التحقق مما إذا كان قد سجل دخوله مسبقاً
-      if (guest.status === "entered") {
-        setScanResult({
-          status: "already_used",
-          message: "تنبيه: هذا الباركود تم استخدامه مسبقاً!",
-          guestName: guest.name,
-        });
-        return;
-      }
-
-      // 3. تحديث حالة الضيف إلى دخل (entered)
-      await supabase
-        .from("guests")
-        .update({ status: "entered" })
-        .eq("id", guest.id);
-      */
-
-      // --- [محاكاة تجريبية تدعم "ساره العتيبي" و "عبدالله السلمان"] ---
-      if (trimmedName === "ساره العتيبي" || trimmedName === "عبدالله السلمان") {
-        setScanResult({
-          status: "success",
-          message: "تم تسجيل الدخول بنجاح",
-          guestName: trimmedName,
-        });
-      } else {
-        setScanResult({
-          status: "error",
-          message: "رمز الدعوة أو الاسم غير صحيح أو غير مسجل",
-          guestName: trimmedName,
-        });
-      }
-
-    } catch (err) {
-      console.error("Verification error:", err);
+    if (trimmedName === "ساره العتيبي" || trimmedName === "عبدالله السلمان") {
+      setScanResult({
+        status: "success",
+        message: "تم تسجيل الدخول بنجاح",
+        guestName: trimmedName,
+      });
+    } else {
       setScanResult({
         status: "error",
-        message: "حدث خطأ أثناء التحقق من قاعدة البيانات",
+        message: "رمز الدعوة أو الاسم غير صحيح أو غير مسجل",
+        guestName: trimmedName,
       });
     }
   };
 
-  // تشغيل الكاميرا والمسح التلقائي للباركود
   React.useEffect(() => {
     if (!isAuthenticated) return;
 
     let stream: MediaStream | null = null;
-    let animationFrameId: number;
 
     async function startCamera() {
       try {
@@ -139,35 +84,10 @@ function ScannerPage() {
 
     startCamera();
 
-    // حلقة معالجة إطارات الفيديو لقراءة الـ QR تلقائياً
-    const scanFrame = () => {
-      if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current || document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-          if (code && code.data) {
-            verifyGuestCode(code.data);
-          }
-        }
-      }
-      animationFrameId = requestAnimationFrame(scanFrame);
-    };
-
-    animationFrameId = requestAnimationFrame(scanFrame);
-
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
-      cancelAnimationFrame(animationFrameId);
     };
   }, [isAuthenticated]);
 
@@ -225,7 +145,6 @@ function ScannerPage() {
               </button>
             </div>
 
-            {/* شاشة الكاميرا والمسح التلقائي */}
             <div className="relative mx-auto w-full aspect-square max-w-[280px] rounded-2xl bg-black overflow-hidden border-2 border-[color:var(--gold)] flex items-center justify-center">
               {cameraError ? (
                 <div className="p-4 text-xs text-rose-400 text-center">
@@ -233,20 +152,16 @@ function ScannerPage() {
                   {cameraError}
                 </div>
               ) : (
-                <>
-                  <video
-                    ref={videoRef}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-cover"
-                  />
-                  <canvas ref={canvasRef} className="hidden" />
-                </>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
               )}
             </div>
 
-            {/* التحقق اليدوي الاحتياطي */}
             <div className="mt-6">
               <div className="flex gap-2">
                 <input
@@ -265,7 +180,6 @@ function ScannerPage() {
               </div>
             </div>
 
-            {/* نتيجة التحقق */}
             {scanResult.status && (
               <div
                 className={`mt-6 rounded-2xl p-4 text-right transition-all ${
