@@ -31,8 +31,11 @@ function ScannerPage() {
   }>({ status: null, message: "" });
 
   const [manualCode, setManualCode] = React.useState("");
+  
+  // ذاكرة مؤقتة لحفظ الضيوف الذين تم تسجيل دخولهم لمنع التكرار
+  const enteredGuestsRef = React.useRef<Set<string>>(new Set());
   const scannerRef = React.useRef<Html5Qrcode | null>(null);
-  const isScanningRef = React.useRef(false);
+  const isProcessingRef = React.useRef(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,9 +49,24 @@ function ScannerPage() {
 
   const verifyGuestCode = (guestNameInput: string) => {
     const trimmedName = guestNameInput.trim();
-    if (!trimmedName) return;
+    if (!trimmedName || isProcessingRef.current) return;
 
+    isProcessingRef.current = true;
+
+    // 1. التحقق هل الضيف مسجل مسبقاً في الجلسة الحالية
+    if (enteredGuestsRef.current.has(trimmedName)) {
+      setScanResult({
+        status: "already_used",
+        message: "تنبيه: هذا الباركود تم استخدامه مسبقاً!",
+        guestName: trimmedName,
+      });
+      setTimeout(() => { isProcessingRef.current = false; }, 2000);
+      return;
+    }
+
+    // 2. التحقق من صحة الاسم
     if (trimmedName === "ساره العتيبي" || trimmedName === "عبدالله السلمان") {
+      enteredGuestsRef.current.add(trimmedName); // حفظه أنه دخل
       setScanResult({
         status: "success",
         message: "تم تسجيل الدخول بنجاح",
@@ -61,9 +79,12 @@ function ScannerPage() {
         guestName: trimmedName,
       });
     }
+
+    setTimeout(() => {
+      isProcessingRef.current = false;
+    }, 2500);
   };
 
-  // تشغيل ماسح الكاميرا عبر مكتبة html5-qrcode
   React.useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -83,17 +104,10 @@ function ScannerPage() {
             qrbox: { width: 250, height: 250 },
           },
           (decodedText) => {
-            if (!isScanningRef.current) {
-              isScanningRef.current = true;
-              verifyGuestCode(decodedText);
-              // إيقاف مؤقت لمنع التكرار السريع ثم إعادة التفعيل
-              setTimeout(() => {
-                isScanningRef.current = false;
-              }, 3000);
-            }
+            verifyGuestCode(decodedText);
           },
-          (errorMessage) => {
-            // أخطاء المسح المعتادة أثناء البحث عن الكود يتم تجاهلها لتجنب إزعاج المستخدم
+          (_errorMessage) => {
+            // تجاهل أخطاء الإطار الافتراضية أثناء البحث عن الـ QR
           }
         );
       } catch (err) {
@@ -102,7 +116,6 @@ function ScannerPage() {
       }
     };
 
-    // تأخير بسيط لضمان ظهور العنصر في الصفحة
     const timer = setTimeout(() => {
       startScanner();
     }, 500);
@@ -169,7 +182,6 @@ function ScannerPage() {
               </button>
             </div>
 
-            {/* حاوية الكاميرا التي تستخدمها مكتبة html5-qrcode */}
             <div className="relative mx-auto w-full max-w-[280px] rounded-2xl bg-black overflow-hidden border-2 border-[color:var(--gold)]">
               {cameraError ? (
                 <div className="p-8 text-xs text-rose-400 text-center">
@@ -181,7 +193,6 @@ function ScannerPage() {
               )}
             </div>
 
-            {/* التحقق اليدوي الاحتياطي */}
             <div className="mt-6">
               <div className="flex gap-2">
                 <input
@@ -192,7 +203,10 @@ function ScannerPage() {
                   className="w-full rounded-xl border border-[color:var(--gold)]/30 bg-white/70 px-3 py-2 text-center text-sm outline-none"
                 />
                 <button
-                  onClick={() => verifyGuestCode(manualCode)}
+                  onClick={() => {
+                    verifyGuestCode(manualCode);
+                    setManualCode("");
+                  }}
                   className="btn-gold rounded-xl px-4 text-xs font-semibold shrink-0"
                 >
                   تحقق
@@ -200,7 +214,6 @@ function ScannerPage() {
               </div>
             </div>
 
-            {/* نتيجة التحقق */}
             {scanResult.status && (
               <div
                 className={`mt-6 rounded-2xl p-4 text-right transition-all ${
