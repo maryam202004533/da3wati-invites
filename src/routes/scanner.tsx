@@ -34,7 +34,6 @@ function ScannerPage() {
     status: "success" | "already_used" | "error" | null;
     message: string;
     guestName?: string;
-    guestId?: string;
     indexNumber?: number;
   }>({ status: null, message: "" });
 
@@ -42,8 +41,6 @@ function ScannerPage() {
   
   const isProcessingRef = React.useRef(false);
   const [enteredGuestsList, setEnteredGuestsList] = React.useState<LoggedGuest[]>([]);
-  
-  // مجموعة لتخزين معرفات/أسماء من تم تسجيل دخولهم لمنع التكرار
   const enteredGuestsSetRef = React.useRef<Set<string>>(new Set());
 
   const scannerRef = React.useRef<Html5Qrcode | null>(null);
@@ -70,13 +67,17 @@ function ScannerPage() {
     }, 2500);
 
     try {
-      // 1. البحث في قاعدة بيانات Supabase هل الاسم موجود؟
+      console.log("جارٍ البحث في قاعدة البيانات عن:", trimmedName);
+
+      // الاستعلام من قاعدة البيانات (تأكدي أن اسم الجدول guests أو غيريه لاسم جدولك)
       const { data, error } = await supabase
         .from("guests")
         .select("*")
         .ilike("name", `%${trimmedName}%`);
 
-      // إذا لم يتم العثور عليه نهائياً في قاعدة البيانات
+      console.log("نتيجة قاعدة البيانات:", { data, error });
+
+      // القاعدة الأولى: إذا مو موجود بالأساس في قاعدة البيانات -> غير مدعو
       if (error || !data || data.length === 0) {
         setScanResult({
           status: "error",
@@ -90,7 +91,7 @@ function ScannerPage() {
       const guestName = guestRecord.name || trimmedName;
       const guestUniqueKey = String(guestRecord.id || guestName);
 
-      // 2. التحقق هل تم مسحه وتسجيل دخوله من قبل
+      // القاعدة الثالثة: إذا تم مسحه ودخل من قبل -> قد دخل مسبقاً
       if (enteredGuestsSetRef.current.has(guestUniqueKey)) {
         setScanResult({
           status: "already_used",
@@ -100,7 +101,7 @@ function ScannerPage() {
         return;
       }
 
-      // 3. إذا كان موجوداً ولم يدخل من قبل $\leftarrow$ تسجيل دخول ناجح
+      // القاعدة الثانية: موجود ولم يدخل من قبل -> تسجيل دخول ناجح
       enteredGuestsSetRef.current.add(guestUniqueKey);
       
       const nextIndex = enteredGuestsList.length + 1;
@@ -122,7 +123,7 @@ function ScannerPage() {
       console.error("Verification error:", err);
       setScanResult({
         status: "error",
-        message: "حدث خطأ أثناء التحقق من قاعدة البيانات",
+        message: "حدث خطأ أثناء الاتصال بقاعدة البيانات",
       });
     }
   };
@@ -141,7 +142,6 @@ function ScannerPage() {
       },
       (decodedText) => {
         if (isProcessingRef.current) return;
-        // استخراج الاسم مباشرة من النص المفحوص
         const guestName = decodedText.includes(",") ? decodedText.split(",")[0] : decodedText;
         setManualName(guestName);
         verifyGuest(guestName);
@@ -216,7 +216,7 @@ function ScannerPage() {
               <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
               <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
-                الكاميرا مفعلة (التحقق من قاعدة البيانات ومنع التكرار).
+                الكاميرا مفعلة (مربوط بقاعدة البيانات مباشرة).
               </p>
 
               <div className="space-y-3">
