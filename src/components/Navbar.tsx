@@ -1,6 +1,5 @@
 
 import { Link } from "@tanstack/react-router";
-import { Logo } from "./Logo";
 import { whatsappUrl } from "@/lib/config";
 
 export function Navbar() {
@@ -8,9 +7,15 @@ export function Navbar() {
     <header className="sticky top-0 z-40 w-full">
       <div className="mx-auto mt-4 max-w-6xl px-4">
         <nav className="glass flex items-center justify-between rounded-full px-4 py-2 sm:px-6">
-          <Link to="/">
-            <Logo />
+          <Link to="/" className="flex flex-col text-right">
+            <span className="text-xl font-bold tracking-tight text-white">
+              مناسبتك
+            </span>
+            <span className="text-[10px] font-medium tracking-wider text-[color:var(--gold)]">
+              Munasabatak
+            </span>
           </Link>
+          
           <div className="hidden items-center gap-8 md:flex">
             <Link to="/" className="text-sm hover:text-gold transition">الرئيسية</Link>
             <Link to="/packages" className="text-sm hover:text-gold transition">الباقات</Link>
@@ -27,6 +32,7 @@ export function Navbar() {
               تواصل
             </a>
           </div>
+
           <Link
             to="/register"
             className="btn-gold btn-gold-hover hidden rounded-full px-5 py-2 text-sm font-semibold md:inline-block"
