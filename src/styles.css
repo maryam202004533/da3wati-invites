@@ -1,5 +1,4 @@
 
-
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
@@ -59,81 +58,81 @@
 :root {
   --radius: 0.875rem;
   
-  /* تعديل الباليت لتقليل السطوع والحدة */
-  --gold: oklch(0.62 0.08 80);            /* ذهبي هادئ ومطفي بدلاً من المشع */
-  --gold-soft: oklch(0.72 0.05 80);
-  --champagne: oklch(0.92 0.02 85);       /* شامبانيا ناعم وخفيف */
-  --beige: oklch(0.94 0.01 85);           /* بيج مطفي هادئ */
-  --ink: oklch(0.28 0.005 60);            /* نصوص بلون داكن ومريح للعين */
+  /* الهوية البصرية: أخضر زمردي داكن مع ذهبي راقي */
+  --gold: #d4af37;
+  --gold-soft: #f3e5ab;
+  --champagne: #064e3b;
+  --beige: #043836;
+  --ink: #ffffff;
 
-  /* خلفية أوف وايت/كريمي دافئ هادئ لتخفيف السطوع الأبيض */
-  --background: oklch(0.96 0.008 85);
+  /* خلفية أخضر زمردي داكن فاخر مطابقة تماماً للصورة */
+  --background: #042f2e;
   --foreground: var(--ink);
-  --card: oklch(0.98 0.004 85);
+  --card: #064e3b;
   --card-foreground: var(--ink);
-  --popover: oklch(0.98 0.004 85);
+  --popover: #064e3b;
   --popover-foreground: var(--ink);
   --primary: var(--gold);
-  --primary-foreground: oklch(0.99 0.005 85);
-  --secondary: var(--champagne);
+  --primary-foreground: #042f2e;
+  --secondary: #064e3b;
   --secondary-foreground: var(--ink);
-  --muted: var(--beige);
-  --muted-foreground: oklch(0.45 0.01 60);
-  --accent: var(--champagne);
+  --muted: #043836;
+  --muted-foreground: #94a3b8;
+  --accent: #064e3b;
   --accent-foreground: var(--ink);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.99 0 0);
-  --border: oklch(0.85 0.015 82);
-  --input: oklch(0.88 0.015 82);
+  --border: rgba(212, 175, 55, 0.2);
+  --input: rgba(255, 255, 255, 0.1);
   --ring: var(--gold);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.96 0.005 247.858);
-  --sidebar-foreground: oklch(0.129 0.042 264.695);
-  --sidebar-primary: oklch(0.208 0.042 265.755);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.94 0.007 247.896);
-  --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
-  --sidebar-border: oklch(0.90 0.013 255.508);
-  --sidebar-ring: oklch(0.65 0.03 256.788);
+  --sidebar: #042f2e;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--gold);
+  --sidebar-primary-foreground: #042f2e;
+  --sidebar-accent: #064e3b;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(212, 175, 55, 0.2);
+  --sidebar-ring: var(--gold);
 }
 
 .dark {
-  --background: oklch(0.129 0.042 264.695);
-  --foreground: oklch(0.984 0.003 247.858);
-  --card: oklch(0.208 0.042 265.755);
-  --card-foreground: oklch(0.984 0.003 247.858);
-  --popover: oklch(0.208 0.042 265.755);
-  --popover-foreground: oklch(0.984 0.003 247.858);
-  --primary: oklch(0.929 0.013 255.508);
-  --primary-foreground: oklch(0.208 0.042 265.755);
-  --secondary: oklch(0.279 0.041 260.031);
-  --secondary-foreground: oklch(0.984 0.003 247.858);
-  --muted: oklch(0.279 0.041 260.031);
-  --muted-foreground: oklch(0.704 0.04 256.788);
-  --accent: oklch(0.279 0.041 260.031);
-  --accent-foreground: oklch(0.984 0.003 247.858);
+  --background: #042f2e;
+  --foreground: #ffffff;
+  --card: #064e3b;
+  --card-foreground: #ffffff;
+  --popover: #064e3b;
+  --popover-foreground: #ffffff;
+  --primary: #d4af37;
+  --primary-foreground: #042f2e;
+  --secondary: #064e3b;
+  --secondary-foreground: #ffffff;
+  --muted: #043836;
+  --muted-foreground: #94a3b8;
+  --accent: #064e3b;
+  --accent-foreground: #ffffff;
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
+  --border: rgba(212, 175, 55, 0.2);
+  --input: rgba(255, 255, 255, 0.15);
+  --ring: #d4af37;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.208 0.042 265.755);
-  --sidebar-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-accent: oklch(0.279 0.041 260.031);
-  --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --sidebar: #042f2e;
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: #d4af37;
+  --sidebar-primary-foreground: #042f2e;
+  --sidebar-accent: #064e3b;
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgba(212, 175, 55, 0.2);
+  --sidebar-ring: #d4af37;
 }
 
 @layer base {
@@ -145,46 +144,45 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
-    /* تخفيف الإضاءات الخلفية الملوّنة لتكون مريحة جداً */
     background-image:
-      radial-gradient(1200px 600px at 90% -10%, color-mix(in oklab, var(--gold) 5%, transparent), transparent),
-      radial-gradient(900px 500px at -10% 100%, color-mix(in oklab, var(--champagne) 15%, transparent), transparent);
+      radial-gradient(1200px 600px at 90% -10%, rgba(212, 175, 55, 0.08), transparent),
+      radial-gradient(900px 500px at -10% 100%, rgba(6, 78, 59, 0.3), transparent);
     background-attachment: fixed;
+    min-height: 100vh;
   }
 
   h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.01em; }
 }
 
 @utility glass {
-  background: color-mix(in oklab, white 60%, transparent);
+  background: rgba(6, 78, 59, 0.45);
   backdrop-filter: blur(18px) saturate(110%);
-  border: 1px solid color-mix(in oklab, var(--gold) 15%, transparent);
+  border: 1px solid rgba(212, 175, 55, 0.25);
   box-shadow:
-    0 1px 0 rgba(255,255,255,0.4) inset,
-    0 20px 40px -20px color-mix(in oklab, var(--gold) 15%, transparent);
+    0 1px 0 rgba(255,255,255,0.1) inset,
+    0 20px 40px -20px rgba(0, 0, 0, 0.5);
 }
 
 @utility gold-border {
-  border: 1px solid color-mix(in oklab, var(--gold) 35%, transparent);
+  border: 1px solid rgba(212, 175, 55, 0.35);
 }
 
 @utility text-gradient-gold {
-  /* تدرج ذهبي دافئ ومطفي بدلاً من الأصفر الساطع */
-  background: linear-gradient(120deg, #96701B 0%, #C4A44D 45%, #A17D20 100%);
+  background: linear-gradient(120deg, #d4af37 0%, #f3e5ab 45%, #c59b27 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
 
 @utility btn-gold {
-  /* زر بذهبي مطفي هادئ */
-  background: linear-gradient(135deg, #A88320 0%, #C8A951 55%, #A88320 100%);
-  color: #fff;
-  box-shadow: 0 8px 20px -8px color-mix(in oklab, var(--gold) 40%, transparent);
+  background: linear-gradient(135deg, #b89728 0%, #d4af37 55%, #b89728 100%);
+  color: #042f2e;
+  font-weight: 700;
+  box-shadow: 0 8px 20px -8px rgba(212, 175, 55, 0.4);
   transition: transform 0.25s ease, box-shadow 0.25s ease, filter 0.25s ease;
 }
 @utility btn-gold-hover {
-  &:hover { transform: translateY(-2px); filter: brightness(1.03); box-shadow: 0 12px 28px -10px color-mix(in oklab, var(--gold) 50%, transparent); }
+  &:hover { transform: translateY(-2px); filter: brightness(1.05); box-shadow: 0 12px 28px -10px rgba(212, 175, 55, 0.6); }
 }
 
 @keyframes floaty {
