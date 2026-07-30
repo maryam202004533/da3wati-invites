@@ -1,5 +1,4 @@
 
-
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { Navbar } from "@/components/Navbar";
@@ -42,25 +41,8 @@ function ScannerPage() {
   
   const isProcessingRef = React.useRef(false);
   const [enteredGuestsList, setEnteredGuestsList] = React.useState<LoggedGuest[]>([]);
-  const enteredGuestsSetRef = React.useRef<Set<string>>(new Set());
 
   const scannerRef = React.useRef<Html5Qrcode | null>(null);
-
-  // جلب وطباعة جميع الأسماء من Supabase للتأكد من اتصال القاعدة وصحة البيانات
-  React.useEffect(() => {
-    if (isAuthenticated) {
-      async function fetchAllGuests() {
-        const { data, error } = await supabase.from("guests").select("*");
-        console.log("--- جميع الضيوف المسجلين في قاعدة بيانات Supabase ---");
-        if (error) {
-          console.error("خطأ في جلب البيانات من جدول guests:", error);
-        } else {
-          console.table(data);
-        }
-      }
-      fetchAllGuests();
-    }
-  }, [isAuthenticated]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,20 +66,17 @@ function ScannerPage() {
     }, 2500);
 
     try {
-      console.log("جارٍ البحث عن الضيف:", trimmedName);
-
-      // البحث المرن في جدول guests
+      // 1. البحث في جدول guests بالاسم
       const { data, error } = await supabase
         .from("guests")
         .select("*")
         .ilike("name", `%${trimmedName}%`);
 
-      console.log("نتيجة البحث من Supabase:", data);
-
+      // إذا لم يكن الاسم موجوداً في جدول guests
       if (error || !data || data.length === 0) {
         setScanResult({
           status: "error",
-          message: `(${trimmedName}) غير مدعو وليست موجودة في قاعدة البيانات!`,
+          message: "غير مدعو",
           guestName: trimmedName,
         });
         return;
@@ -105,32 +84,44 @@ function ScannerPage() {
 
       const guestRecord = data[0];
       const guestName = guestRecord.name || trimmedName;
-      const guestUniqueKey = String(guestRecord.id || guestName);
 
-      // التحقق هل تم مسحه ودخل من قبل
-      if (enteredGuestsSetRef.current.has(guestUniqueKey)) {
+      // 2. التحقق من عمود is_entered
+      if (guestRecord.is_entered === true) {
+        // إذا كانت القيمة true ➜ تم الدخول مسبقاً
         setScanResult({
           status: "already_used",
-          message: `(${guestName}) قد دخل مسبقاً وتم مسح كوده من قبل!`,
+          message: "تم الدخول مسبقًا",
           guestName: guestName,
         });
         return;
       }
 
-      // تسجيل دخول ناجح
-      enteredGuestsSetRef.current.add(guestUniqueKey);
-      
+      // 3. إذا كانت قيمته false ➜ مدعو، نقوم بتحديث السجل في قاعدة البيانات
+      const currentTimeIso = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from("guests")
+        .update({
+          is_entered: true,
+          entered_at: currentTimeIso,
+        })
+        .eq("id", guestRecord.id);
+
+      if (updateError) {
+        console.error("Error updating guest status:", updateError);
+        return;
+      }
+
+      const currentTimeFormatted = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
       const nextIndex = enteredGuestsList.length + 1;
-      const currentTime = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-      
+
       setEnteredGuestsList((prev) => [
-        { indexNumber: nextIndex, name: guestName, idNumber: String(guestRecord.id || "-"), time: currentTime },
+        { indexNumber: nextIndex, name: guestName, idNumber: String(guestRecord.id || "-"), time: currentTimeFormatted },
         ...prev,
       ]);
 
       setScanResult({
         status: "success",
-        message: `تم تسجيل دخول (${guestName}) بنجاح`,
+        message: "مدعو",
         guestName: guestName,
         indexNumber: nextIndex,
       });
@@ -232,7 +223,7 @@ function ScannerPage() {
               <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
               <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
-                الكاميرا مفعلة (افتح الـ Console لمعاينة الأسماء المسترجعة).
+                الكاميرا مفعلة (التحقق والتحديث عبر قاعدة بيانات Supabase).
               </p>
 
               <div className="space-y-3">
@@ -278,7 +269,10 @@ function ScannerPage() {
                     )}
 
                     <div>
-                      <p className="font-bold text-sm">{scanResult.message}</p>
+                      <p className="font-bold text-sm">
+                        {scanResult.status === "success" && "مدعو - "}
+                        {scanResult.message}
+                      </p>
                       {scanResult.indexNumber && (
                         <p className="text-xs mt-1 font-semibold text-[color:var(--gold)]">
                           الرقم التسلسلي: {scanResult.indexNumber}
@@ -297,7 +291,7 @@ function ScannerPage() {
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-[color:var(--gold)]/20">
                 <h3 className="font-bold text-sm flex items-center gap-2 text-[color:var(--gold)]">
                   <Users className="h-4 w-4" />
-                  سجل الحاضرين ({enteredGuestsList.length})
+                  سجل الحاضرين في الجلسة ({enteredGuestsList.length})
                 </h3>
               </div>
 
