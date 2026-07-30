@@ -1,10 +1,10 @@
 
+
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { UserCheck, Camera, CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Users } from "lucide-react";
-import jsQR from "jsqr";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({
@@ -30,7 +30,6 @@ function ScannerPage() {
   const [loginError, setLoginError] = React.useState(false);
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [cameraError, setCameraError] = React.useState<string | null>(null);
 
   const [scanResult, setScanResult] = React.useState<{
@@ -131,7 +130,7 @@ function ScannerPage() {
     if (!isAuthenticated) return;
 
     let stream: MediaStream | null = null;
-    let animationFrameId: number;
+    let intervalId: any;
 
     async function startCamera() {
       try {
@@ -142,42 +141,42 @@ function ScannerPage() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
+
+        // استخدام BarcodeDetector المدمج في المتصفح إن توفر
+        if ('BarcodeDetector' in window) {
+          //@ts-ignore
+          const barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+          
+          intervalId = setInterval(async () => {
+            if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+              try {
+                const barcodes = await barcodeDetector.detect(videoRef.current);
+                if (barcodes.length > 0 && barcodes[0].rawValue) {
+                  handleQrCodeData(barcodes[0].rawValue);
+                }
+              } catch (e) {
+                // تجاهل أخطاء الإطار المؤقتة
+              }
+            }
+          }, 1000);
+        } else {
+          setCameraError("الكاميرا مفعلة. استخدم الإدخال اليد أدناه للتحقق السريع.");
+        }
       } catch (err) {
         console.error("Camera Error:", err);
-        setCameraError("تعذر الوصول إلى الكاميرا. يرجى التأكد من السماح للمتصفح بالوصول للكاميرا.");
+        setCameraError("تعذر الوصول إلى الكاميرا. يرجى إدخال بيانات الضيف يدوياً.");
       }
     }
 
     startCamera();
 
-    const scanFrame = () => {
-      if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current || document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-          if (code && code.data) {
-            handleQrCodeData(code.data);
-          }
-        }
-      }
-      animationFrameId = requestAnimationFrame(scanFrame);
-    };
-
-    animationFrameId = requestAnimationFrame(scanFrame);
-
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
-      cancelAnimationFrame(animationFrameId);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
   }, [isAuthenticated]);
 
@@ -237,24 +236,18 @@ function ScannerPage() {
               </div>
 
               <div className="relative mx-auto w-full aspect-square max-w-[260px] rounded-2xl bg-black overflow-hidden border-2 border-[color:var(--gold)] flex items-center justify-center">
-                {cameraError ? (
-                  <div className="p-4 text-xs text-rose-400 text-center">
-                    <Camera className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    {cameraError}
-                  </div>
-                ) : (
-                  <>
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                    <canvas ref={canvasRef} className="hidden" />
-                  </>
-                )}
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
               </div>
+
+              {cameraError && (
+                <p className="text-xs text-amber-600 mt-2 font-medium">{cameraError}</p>
+              )}
 
               <div className="mt-6 space-y-3">
                 <div className="flex flex-col gap-2">
