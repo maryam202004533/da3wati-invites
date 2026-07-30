@@ -1,4 +1,5 @@
 
+
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { Navbar } from "@/components/Navbar";
@@ -54,9 +55,27 @@ function ScannerPage() {
     }
   };
 
-  const verifyGuest = async (nameInput: string) => {
-    const trimmedName = nameInput.trim();
-    if (!trimmedName) return;
+  // دالة ذكية لاستخراج الاسم الصافي سواء كان نص عادي أو صيغة MECARD
+  const extractCleanName = (rawText: string) => {
+    if (!rawText) return "";
+    let text = rawText.trim();
+    
+    // إذا كان الباركود بصيغة MECARD مثل MECARD:N:إبهار العنزي;...
+    if (text.includes("MECARD:N:")) {
+      const parts = text.split("MECARD:N:");
+      if (parts[1]) {
+        text = parts[1].split(";")[0];
+      }
+    } else if (text.includes(",")) {
+      text = text.split(",")[0];
+    }
+    
+    return text.trim();
+  };
+
+  const verifyGuest = async (rawInput: string) => {
+    const cleanName = extractCleanName(rawInput);
+    if (!cleanName) return;
 
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
@@ -66,28 +85,27 @@ function ScannerPage() {
     }, 2500);
 
     try {
-      // 1. البحث في جدول guests بالاسم
+      // 1. البحث في جدول Guest (بحرف G كبير حسب قاعدة بياناتك)
       const { data, error } = await supabase
-        .from("guests")
+        .from("Guest")
         .select("*")
-        .ilike("name", `%${trimmedName}%`);
+        .ilike("name", `%${cleanName}%`);
 
-      // إذا لم يكن الاسم موجوداً في جدول guests
+      // إذا لم يكن الاسم موجوداً في جدول Guest
       if (error || !data || data.length === 0) {
         setScanResult({
           status: "error",
           message: "غير مدعو",
-          guestName: trimmedName,
+          guestName: cleanName,
         });
         return;
       }
 
       const guestRecord = data[0];
-      const guestName = guestRecord.name || trimmedName;
+      const guestName = guestRecord.name || cleanName;
 
       // 2. التحقق من عمود is_entered
       if (guestRecord.is_entered === true) {
-        // إذا كانت القيمة true ➜ تم الدخول مسبقاً
         setScanResult({
           status: "already_used",
           message: "تم الدخول مسبقًا",
@@ -99,7 +117,7 @@ function ScannerPage() {
       // 3. إذا كانت قيمته false ➜ مدعو، نقوم بتحديث السجل في قاعدة البيانات
       const currentTimeIso = new Date().toISOString();
       const { error: updateError } = await supabase
-        .from("guests")
+        .from("Guest")
         .update({
           is_entered: true,
           entered_at: currentTimeIso,
@@ -149,9 +167,9 @@ function ScannerPage() {
       },
       (decodedText) => {
         if (isProcessingRef.current) return;
-        const guestName = decodedText.includes(",") ? decodedText.split(",")[0] : decodedText;
-        setManualName(guestName);
-        verifyGuest(guestName);
+        const extracted = extractCleanName(decodedText);
+        setManualName(extracted);
+        verifyGuest(decodedText);
       },
       () => {}
     ).catch((err) => {
@@ -223,7 +241,7 @@ function ScannerPage() {
               <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
               <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
-                الكاميرا مفعلة (التحقق والتحديث عبر قاعدة بيانات Supabase).
+                الكاميرا مفعلة (التحقق عبر جدول Guest في Supabase).
               </p>
 
               <div className="space-y-3">
