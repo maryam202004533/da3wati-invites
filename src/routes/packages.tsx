@@ -1,5 +1,4 @@
 
-
 import { createFileRoute } from "@tanstack/react-router";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
@@ -153,7 +152,7 @@ function PackagesPage() {
             <div
               key={p.name}
               className={`glass relative overflow-hidden rounded-3xl p-8 flex flex-col justify-between transition hover:-translate-y-1 ${
-                p.featured ? "ring-2 ring-[color:var(--gold)] shadow-2xl bg-white/95" : ""
+                p.featured ? "ring-2 ring-[color:var(--gold)] shadow-2xl" : ""
               }`}
             >
               <div>
@@ -174,7 +173,7 @@ function PackagesPage() {
                   {p.features.map((f, idx) => (
                     <li key={idx} className="flex items-start gap-2.5">
                       <CheckCircle2 className="mt-0.5 h-4 w-4 text-[color:var(--gold)] shrink-0" />
-                      <span className="text-gray-700">{f}</span>
+                      <span className="text-muted-foreground">{f}</span>
                     </li>
                   ))}
                 </ul>
