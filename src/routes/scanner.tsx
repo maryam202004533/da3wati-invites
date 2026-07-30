@@ -55,12 +55,11 @@ function ScannerPage() {
     }
   };
 
-  // دالة ذكية لاستخراج الاسم الصافي سواء كان نص عادي أو صيغة MECARD
+  // دالة دقيقة لاستخراج الاسم الصافي فقط من أي صيغة باركود
   const extractCleanName = (rawText: string) => {
     if (!rawText) return "";
     let text = rawText.trim();
     
-    // إذا كان الباركود بصيغة MECARD مثل MECARD:N:إبهار العنزي;...
     if (text.includes("MECARD:N:")) {
       const parts = text.split("MECARD:N:");
       if (parts[1]) {
@@ -85,13 +84,12 @@ function ScannerPage() {
     }, 2500);
 
     try {
-      // 1. البحث في جدول Guest (بحرف G كبير حسب قاعدة بياناتك)
+      // 1. البحث في جدول Guest (بحرف G كبير)
       const { data, error } = await supabase
         .from("Guest")
         .select("*")
         .ilike("name", `%${cleanName}%`);
 
-      // إذا لم يكن الاسم موجوداً في جدول Guest
       if (error || !data || data.length === 0) {
         setScanResult({
           status: "error",
@@ -114,7 +112,7 @@ function ScannerPage() {
         return;
       }
 
-      // 3. إذا كانت قيمته false ➜ مدعو، نقوم بتحديث السجل في قاعدة البيانات
+      // 3. تحديث السجل في قاعدة البيانات إلى true
       const currentTimeIso = new Date().toISOString();
       const { error: updateError } = await supabase
         .from("Guest")
@@ -167,9 +165,11 @@ function ScannerPage() {
       },
       (decodedText) => {
         if (isProcessingRef.current) return;
-        const extracted = extractCleanName(decodedText);
-        setManualName(extracted);
-        verifyGuest(decodedText);
+        
+        // التعديل الهام هنا: استخراج الاسم الصافي أولاً وعرضه في الحقل ثم التحقق
+        const extractedName = extractCleanName(decodedText);
+        setManualName(extractedName);
+        verifyGuest(extractedName);
       },
       () => {}
     ).catch((err) => {
@@ -241,7 +241,7 @@ function ScannerPage() {
               <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
               <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
-                الكاميرا مفعلة (التحقق عبر جدول Guest في Supabase).
+                الكاميرا مفعلة (التحقق والتحديث عبر جدول Guest في Supabase).
               </p>
 
               <div className="space-y-3">
@@ -341,3 +341,4 @@ function ScannerPage() {
     </div>
   );
 }
+
