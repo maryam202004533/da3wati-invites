@@ -1,4 +1,5 @@
 
+
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { Navbar } from "@/components/Navbar";
@@ -45,6 +46,22 @@ function ScannerPage() {
 
   const scannerRef = React.useRef<Html5Qrcode | null>(null);
 
+  // جلب وطباعة جميع الأسماء من Supabase للتأكد من اتصال القاعدة وصحة البيانات
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      async function fetchAllGuests() {
+        const { data, error } = await supabase.from("guests").select("*");
+        console.log("--- جميع الضيوف المسجلين في قاعدة بيانات Supabase ---");
+        if (error) {
+          console.error("خطأ في جلب البيانات من جدول guests:", error);
+        } else {
+          console.table(data);
+        }
+      }
+      fetchAllGuests();
+    }
+  }, [isAuthenticated]);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (usernameInput.trim() === ADMIN_USERNAME) {
@@ -67,17 +84,16 @@ function ScannerPage() {
     }, 2500);
 
     try {
-      console.log("جارٍ البحث في قاعدة البيانات عن:", trimmedName);
+      console.log("جارٍ البحث عن الضيف:", trimmedName);
 
-      // الاستعلام من قاعدة البيانات (تأكدي أن اسم الجدول guests أو غيريه لاسم جدولك)
+      // البحث المرن في جدول guests
       const { data, error } = await supabase
         .from("guests")
         .select("*")
         .ilike("name", `%${trimmedName}%`);
 
-      console.log("نتيجة قاعدة البيانات:", { data, error });
+      console.log("نتيجة البحث من Supabase:", data);
 
-      // القاعدة الأولى: إذا مو موجود بالأساس في قاعدة البيانات -> غير مدعو
       if (error || !data || data.length === 0) {
         setScanResult({
           status: "error",
@@ -91,7 +107,7 @@ function ScannerPage() {
       const guestName = guestRecord.name || trimmedName;
       const guestUniqueKey = String(guestRecord.id || guestName);
 
-      // القاعدة الثالثة: إذا تم مسحه ودخل من قبل -> قد دخل مسبقاً
+      // التحقق هل تم مسحه ودخل من قبل
       if (enteredGuestsSetRef.current.has(guestUniqueKey)) {
         setScanResult({
           status: "already_used",
@@ -101,7 +117,7 @@ function ScannerPage() {
         return;
       }
 
-      // القاعدة الثانية: موجود ولم يدخل من قبل -> تسجيل دخول ناجح
+      // تسجيل دخول ناجح
       enteredGuestsSetRef.current.add(guestUniqueKey);
       
       const nextIndex = enteredGuestsList.length + 1;
@@ -216,7 +232,7 @@ function ScannerPage() {
               <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
               <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
-                الكاميرا مفعلة (مربوط بقاعدة البيانات مباشرة).
+                الكاميرا مفعلة (افتح الـ Console لمعاينة الأسماء المسترجعة).
               </p>
 
               <div className="space-y-3">
