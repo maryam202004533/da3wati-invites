@@ -24,6 +24,14 @@ interface LoggedGuest {
   time: string;
 }
 
+// قائمة المدعوين الرسميين المسجلين مسبقاً في النظام (يمكنك تعديلها أو جلبها من قاعدة البيانات)
+const OFFICIAL_GUESTS = [
+  { name: "سارة أحمد", idNumber: "101" },
+  { name: "محمد خالد", idNumber: "102" },
+  { name: "فاطمة علي", idNumber: "103" },
+  { name: "عبدالله محمد", idNumber: "104" },
+];
+
 function ScannerPage() {
   const ADMIN_USERNAME = "maryam1234"; 
   const [usernameInput, setUsernameInput] = React.useState("");
@@ -41,12 +49,8 @@ function ScannerPage() {
   const [manualName, setManualName] = React.useState("");
   const [manualId, setManualId] = React.useState("");
   
-  // حماية صارمة لمنع التكرار الفوري أثناء المسح بالكاميرا
   const isProcessingRef = React.useRef(false);
-
   const [enteredGuestsList, setEnteredGuestsList] = React.useState<LoggedGuest[]>([]);
-  
-  // استخدام Set لتخزين الهويات التي تم تسجيلها مسبقاً لمنع التكرار نهائياً
   const enteredGuestsSetRef = React.useRef<Set<string>>(new Set());
 
   const scannerRef = React.useRef<Html5Qrcode | null>(null);
@@ -67,19 +71,32 @@ function ScannerPage() {
     
     if (!trimmedName || !trimmedId) return;
 
-    // منع المعالجة المتكررة لنفس الإطار اللحظي
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
 
-    // فتح قفل المعالجة بعد ثانيتين لتجربة ضيف آخر
     setTimeout(() => {
       isProcessingRef.current = false;
     }, 2500);
 
-    const uniqueKey = trimmedId; // الاعتماد على رقم الهوية كمعرف فريد للضيف
-
     try {
-      // التحقق هل تم تسجيله مسبقاً؟
+      // 1. التحقق هل الشخص مسجل مسبقاً في قائمة المدعوين الأساسية؟
+      const isRegisteredGuest = OFFICIAL_GUESTS.some(
+        (g) => g.idNumber === trimmedId || g.name.toLowerCase() === trimmedName.toLowerCase()
+      );
+
+      if (!isRegisteredGuest) {
+        setScanResult({
+          status: "error",
+          message: "عذراً، هذا الشخص غير مسجل في قائمة المدعوين الأساسية!",
+          guestName: trimmedName,
+          guestId: trimmedId,
+        });
+        return;
+      }
+
+      const uniqueKey = trimmedId;
+
+      // 2. التحقق هل تم تسجيل دخول هذا الضيف من قبل؟
       if (enteredGuestsSetRef.current.has(uniqueKey)) {
         setScanResult({
           status: "already_used",
@@ -90,7 +107,7 @@ function ScannerPage() {
         return;
       }
 
-      // إضافة الضيف للسجل لأنه لم يدخل من قبل
+      // 3. إذا كان مسجلاً ولم يدخل من قبل، يتم تسجيل دخوله بنجاح
       enteredGuestsSetRef.current.add(uniqueKey);
       
       const nextIndex = enteredGuestsList.length + 1;
@@ -133,7 +150,6 @@ function ScannerPage() {
       (decodedText) => {
         if (isProcessingRef.current) return;
 
-        // تحليل النص القادم من الباركود
         if (decodedText.includes(",")) {
           const [name, id] = decodedText.split(",");
           setManualName(name);
@@ -141,15 +157,12 @@ function ScannerPage() {
           verifyGuest(name, id);
         } else {
           setManualName(decodedText);
-          // إذا لم يحتوي الباركود على فاصلة نعتبر النص هو الاسم ورقم عشوائي أو ثابت للتعريف
           const generatedId = "ID-" + decodedText;
           setManualId(generatedId);
           verifyGuest(decodedText, generatedId);
         }
       },
-      () => {
-        // أخطاء الإطار المؤقتة تُترك فارغة لتفادي توقف الكاميرا
-      }
+      () => {}
     ).catch((err) => {
       console.error("Failed to start scanner", err);
     });
@@ -216,11 +229,10 @@ function ScannerPage() {
                 </button>
               </div>
 
-              {/* حاوية قارئ الباركود التلقائي */}
               <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
               <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
-                الكاميرا مفعلة تفحص الباركود (يتم تسجيل الضيف مرة واحدة فقط).
+                الكاميرا مفعلة (يتم التحقق من القائمة ومنع التكرار تلقائياً).
               </p>
 
               <div className="space-y-3">
