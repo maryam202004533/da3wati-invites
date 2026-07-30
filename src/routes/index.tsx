@@ -110,7 +110,7 @@ function Index() {
                 href={whatsappUrl("مرحبًا، أرغب بالاستفسار عن خدمات مناسبتك")}
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full border border-[color:var(--gold)]/60 bg-white px-7 py-3 text-sm font-semibold text-[color:var(--ink)] transition hover:bg-[color:var(--champagne)]"
+                className="rounded-full border border-[color:var(--gold)]/60 bg-[color:var(--champagne)] px-7 py-3 text-sm font-semibold text-white transition hover:bg-[color:var(--gold)] hover:text-black"
               >
                 التواصل عبر واتساب
               </a>
