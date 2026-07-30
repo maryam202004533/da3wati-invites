@@ -10,7 +10,6 @@ import {
   MessageCircle,
   CheckCircle2,
   Palette,
-  ChevronDown,
 } from "lucide-react";
 import * as React from "react";
 
@@ -64,25 +63,6 @@ const packages = [
       "لوحة إدارة كاملة",
       "ضيوف بلا حد",
     ],
-  },
-];
-
-const faqs = [
-  {
-    q: "هل أحتاج إلى إنشاء حساب؟",
-    a: "لا، تعبئة النموذج ثم الإرسال عبر واتساب دون أي تسجيل.",
-  },
-  {
-    q: "كم تستغرق مدة تجهيز الدعوة؟",
-    a: "عادة خلال 24 ساعة من تأكيد الطلب.",
-  },
-  {
-    q: "هل يمكن تعديل التصميم لاحقًا؟",
-    a: "نعم، يمكن التعديل قبل الإرسال النهائي للضيوف.",
-  },
-  {
-    q: "كيف يعمل الباركود؟",
-    a: "يُنشأ لكل ضيف باركود خاص يُمسح عند الدخول لتأكيد الحضور تلقائيًا.",
   },
 ];
 
@@ -204,16 +184,6 @@ function Index() {
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="mx-auto max-w-3xl px-4 py-20">
-        <SectionTitle eyebrow="الأسئلة الشائعة" title="أجوبة سريعة" />
-        <div className="mt-10 space-y-3">
-          {faqs.map((f, i) => (
-            <FaqItem key={i} q={f.q} a={f.a} />
-          ))}
-        </div>
-      </section>
-
       <Footer />
     </div>
   );
@@ -227,28 +197,6 @@ function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
       </span>
       <h2 className="mt-3 text-3xl font-bold md:text-4xl">{title}</h2>
       <div className="mx-auto mt-4 h-px w-24 bg-gradient-to-l from-transparent via-[color:var(--gold)] to-transparent" />
-    </div>
-  );
-}
-
-function FaqItem({ q, a }: { q: string; a: string }) {
-  const [open, setOpen] = React.useState(false);
-  return (
-    <div className="glass rounded-2xl">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between px-5 py-4 text-right"
-      >
-        <span className="font-semibold">{q}</span>
-        <ChevronDown
-          className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {open && (
-        <div className="border-t border-[color:var(--gold)]/20 px-5 py-4 text-sm text-muted-foreground">
-          {a}
-        </div>
-      )}
     </div>
   );
 }
