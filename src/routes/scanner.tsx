@@ -4,6 +4,7 @@ import * as React from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { UserCheck, CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Users } from "lucide-react";
+import { Html5Qrcode } from "html5-qrcode";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({
@@ -28,9 +29,6 @@ function ScannerPage() {
   const [isAuthenticated, setIsAuthenticated] = React.useState(false);
   const [loginError, setLoginError] = React.useState(false);
 
-  const videoRef = React.useRef<HTMLVideoElement | null>(null);
-  const [cameraError, setCameraError] = React.useState<string | null>(null);
-
   const [scanResult, setScanResult] = React.useState<{
     status: "success" | "already_used" | "error" | null;
     message: string;
@@ -46,6 +44,8 @@ function ScannerPage() {
   const [enteredGuestsList, setEnteredGuestsList] = React.useState<LoggedGuest[]>([]);
   const enteredGuestsSetRef = React.useRef<Set<string>>(new Set());
 
+  const scannerRef = React.useRef<Html5Qrcode | null>(null);
+
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (usernameInput.trim() === ADMIN_USERNAME) {
@@ -60,13 +60,7 @@ function ScannerPage() {
     const trimmedName = nameInput.trim();
     const trimmedId = idInput.trim();
     
-    if (!trimmedName || !trimmedId) {
-      setScanResult({
-        status: "error",
-        message: "يرجى إدخال اسم الضيف ورقم الهوية أو الـ ID",
-      });
-      return;
-    }
+    if (!trimmedName || !trimmedId) return;
 
     const uniqueKey = `${trimmedId}-${trimmedName}`;
     if (lastScannedRef.current === uniqueKey) return;
@@ -116,58 +110,38 @@ function ScannerPage() {
   React.useEffect(() => {
     if (!isAuthenticated) return;
 
-    let stream: MediaStream | null = null;
-    let intervalId: any;
+    const html5QrCode = new Html5Qrcode("reader-container");
+    scannerRef.current = html5QrCode;
 
-    async function startCamera() {
-      try {
-        setCameraError(null);
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment" },
-        });
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-
-        if ('BarcodeDetector' in window) {
-          //@ts-ignore
-          const barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
-          
-          intervalId = setInterval(async () => {
-            if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-              try {
-                const barcodes = await barcodeDetector.detect(videoRef.current);
-                if (barcodes.length > 0 && barcodes[0].rawValue) {
-                  const qrData = barcodes[0].rawValue;
-                  if (qrData.includes(",")) {
-                    const [name, id] = qrData.split(",");
-                    verifyGuest(name, id);
-                  } else {
-                    verifyGuest(qrData, "ID-" + Math.floor(Math.random() * 1000));
-                  }
-                }
-              } catch (e) {
-                // تجاهل أخطاء الإطار المؤقتة
-              }
-            }
-          }, 1000);
+    html5QrCode.start(
+      { facingMode: "environment" },
+      {
+        fps: 10,
+        qrbox: { width: 220, height: 220 },
+      },
+      (decodedText) => {
+        // عند قراءة الباركود بنجاح
+        if (decodedText.includes(",")) {
+          const [name, id] = decodedText.split(",");
+          setManualName(name);
+          setManualId(id);
+          verifyGuest(name, id);
         } else {
-          setCameraError("الكاميرا مفعلة. استخدم الإدخال اليدوي أدناه للتحقق السريع.");
+          setManualName(decodedText);
+          setManualId("ID-" + Math.floor(Math.random() * 10000));
+          verifyGuest(decodedText, "ID-" + Math.floor(Math.random() * 10000));
         }
-      } catch (err) {
-        console.error("Camera Error:", err);
-        setCameraError("تعذر الوصول إلى الكاميرا. يرجى إدخال بيانات الضيف يدوياً.");
+      },
+      () => {
+        // أخطاء الإطار المؤقتة أثناء المسح (تُترك فارغة لتفادي تكرار السجلات)
       }
-    }
-
-    startCamera();
+    ).catch((err) => {
+      console.error("Failed to start scanner", err);
+    });
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
-      if (intervalId) {
-        clearInterval(intervalId);
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        scannerRef.current.stop().catch((err) => console.error("Failed to stop scanner", err));
       }
     };
   }, [isAuthenticated]);
@@ -227,21 +201,14 @@ function ScannerPage() {
                 </button>
               </div>
 
-              <div className="relative mx-auto w-full aspect-square max-w-[260px] rounded-2xl bg-black overflow-hidden border-2 border-[color:var(--gold)] flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              {/* حاوية قارئ الباركود التلقائي */}
+              <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
-              <p className="text-xs text-[color:var(--gold)] mt-2 font-medium">
-                {cameraError || "الكاميرا تفحص الباركود تلقائياً..."}
+              <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
+                الكاميرا مفعلة، قم بتوجيهها نحو الباركود أو أدخل البيانات يدوياً أدناه.
               </p>
 
-              <div className="mt-6 space-y-3">
+              <div className="space-y-3">
                 <div className="flex flex-col gap-2">
                   <input
                     type="text"
