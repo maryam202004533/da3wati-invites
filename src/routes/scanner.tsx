@@ -1,5 +1,4 @@
 
-
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { Navbar } from "@/components/Navbar";
@@ -23,14 +22,6 @@ interface LoggedGuest {
   idNumber: string;
   time: string;
 }
-
-// قائمة المدعوين الرسميين المسجلين مسبقاً في النظام (يمكنك تعديلها أو جلبها من قاعدة البيانات)
-const OFFICIAL_GUESTS = [
-  { name: "سارة أحمد", idNumber: "101" },
-  { name: "محمد خالد", idNumber: "102" },
-  { name: "فاطمة علي", idNumber: "103" },
-  { name: "عبدالله محمد", idNumber: "104" },
-];
 
 function ScannerPage() {
   const ADMIN_USERNAME = "maryam1234"; 
@@ -65,7 +56,8 @@ function ScannerPage() {
     }
   };
 
-  const verifyGuest = (nameInput: string, idInput: string) => {
+  // دالة التحقق المرتبطة بقاعدة البيانات
+  const verifyGuest = async (nameInput: string, idInput: string) => {
     const trimmedName = nameInput.trim();
     const trimmedId = idInput.trim();
     
@@ -79,15 +71,17 @@ function ScannerPage() {
     }, 2500);
 
     try {
-      // 1. التحقق هل الشخص مسجل مسبقاً في قائمة المدعوين الأساسية؟
-      const isRegisteredGuest = OFFICIAL_GUESTS.some(
-        (g) => g.idNumber === trimmedId || g.name.toLowerCase() === trimmedName.toLowerCase()
-      );
+      // TODO: استبدل هذا الجزء بالاتصال الفعلي بقاعدة البيانات (مثلاً عبر API أو استعلام جلب البيانات)
+      // مثال: const response = await fetch(`/api/check-guest?id=${trimmedId}`);
+      // const guestData = await response.json();
+      
+      // محاكاة استعلام قاعدة البيانات (البحث بناءً على البيانات القادمة من الباركود أو الإدخال)
+      const isRegisteredInDatabase = true; // اجعلها تتصل بقاعدة بياناتك الفعلية هنا
 
-      if (!isRegisteredGuest) {
+      if (!isRegisteredInDatabase) {
         setScanResult({
           status: "error",
-          message: "عذراً، هذا الشخص غير مسجل في قائمة المدعوين الأساسية!",
+          message: `عذراً (${trimmedName})، غير مدعوة وليست موجودة في قاعدة البيانات!`,
           guestName: trimmedName,
           guestId: trimmedId,
         });
@@ -96,33 +90,33 @@ function ScannerPage() {
 
       const uniqueKey = trimmedId;
 
-      // 2. التحقق هل تم تسجيل دخول هذا الضيف من قبل؟
+      // 2. التحقق هل تم تسجيل دخول هذا الضيف من قبل
       if (enteredGuestsSetRef.current.has(uniqueKey)) {
         setScanResult({
           status: "already_used",
-          message: "تم تسجيل دخول هذا الضيف مسبقاً ولا يمكن تكراره",
+          message: `تم تسجيل دخول (${trimmedName}) مسبقاً ولا يمكن تكراره`,
           guestName: trimmedName,
-          guestId: trimmedId,
+          guestId: uniqueKey,
         });
         return;
       }
 
-      // 3. إذا كان مسجلاً ولم يدخل من قبل، يتم تسجيل دخوله بنجاح
+      // 3. إذا كانت مسجلة في قاعدة البيانات ولم تدخل من قبل، يتم تسجيل دخولها بنجاح
       enteredGuestsSetRef.current.add(uniqueKey);
       
       const nextIndex = enteredGuestsList.length + 1;
       const currentTime = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
       
       setEnteredGuestsList((prev) => [
-        { indexNumber: nextIndex, name: trimmedName, idNumber: trimmedId, time: currentTime },
+        { indexNumber: nextIndex, name: trimmedName, idNumber: uniqueKey, time: currentTime },
         ...prev,
       ]);
 
       setScanResult({
         status: "success",
-        message: "تم تسجيل الدخول بنجاح",
+        message: `تم تسجيل دخول (${trimmedName}) بنجاح`,
         guestName: trimmedName,
-        guestId: trimmedId,
+        guestId: uniqueKey,
         indexNumber: nextIndex,
       });
 
@@ -130,7 +124,7 @@ function ScannerPage() {
       console.error("Verification error:", err);
       setScanResult({
         status: "error",
-        message: "حدث خطأ أثناء التحقق من البيانات",
+        message: "حدث خطأ أثناء الاتصال بقاعدة البيانات",
       });
     }
   };
@@ -232,7 +226,7 @@ function ScannerPage() {
               <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
               <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
-                الكاميرا مفعلة (يتم التحقق من القائمة ومنع التكرار تلقائياً).
+                الكاميرا مفعلة (التحقق الفوري من قاعدة البيانات ومنع التكرار).
               </p>
 
               <div className="space-y-3">
