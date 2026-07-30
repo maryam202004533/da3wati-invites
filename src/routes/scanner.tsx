@@ -1,4 +1,5 @@
 
+
 import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { Navbar } from "@/components/Navbar";
@@ -39,9 +40,13 @@ function ScannerPage() {
 
   const [manualName, setManualName] = React.useState("");
   const [manualId, setManualId] = React.useState("");
-  const lastScannedRef = React.useRef<string | null>(null);
+  
+  // حماية صارمة لمنع التكرار الفوري أثناء المسح بالكاميرا
+  const isProcessingRef = React.useRef(false);
 
   const [enteredGuestsList, setEnteredGuestsList] = React.useState<LoggedGuest[]>([]);
+  
+  // استخدام Set لتخزين الهويات التي تم تسجيلها مسبقاً لمنع التكرار نهائياً
   const enteredGuestsSetRef = React.useRef<Set<string>>(new Set());
 
   const scannerRef = React.useRef<Html5Qrcode | null>(null);
@@ -62,24 +67,30 @@ function ScannerPage() {
     
     if (!trimmedName || !trimmedId) return;
 
-    const uniqueKey = `${trimmedId}-${trimmedName}`;
-    if (lastScannedRef.current === uniqueKey) return;
-    
-    lastScannedRef.current = uniqueKey;
-    setTimeout(() => { lastScannedRef.current = null; }, 3000);
+    // منع المعالجة المتكررة لنفس الإطار اللحظي
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
+    // فتح قفل المعالجة بعد ثانيتين لتجربة ضيف آخر
+    setTimeout(() => {
+      isProcessingRef.current = false;
+    }, 2500);
+
+    const uniqueKey = trimmedId; // الاعتماد على رقم الهوية كمعرف فريد للضيف
 
     try {
-      if (enteredGuestsSetRef.current.has(trimmedId) || enteredGuestsSetRef.current.has(uniqueKey)) {
+      // التحقق هل تم تسجيله مسبقاً؟
+      if (enteredGuestsSetRef.current.has(uniqueKey)) {
         setScanResult({
           status: "already_used",
-          message: "تم تسجيل دخول هذا الضيف مسبقاً",
+          message: "تم تسجيل دخول هذا الضيف مسبقاً ولا يمكن تكراره",
           guestName: trimmedName,
           guestId: trimmedId,
         });
         return;
       }
 
-      enteredGuestsSetRef.current.add(trimmedId);
+      // إضافة الضيف للسجل لأنه لم يدخل من قبل
       enteredGuestsSetRef.current.add(uniqueKey);
       
       const nextIndex = enteredGuestsList.length + 1;
@@ -120,7 +131,9 @@ function ScannerPage() {
         qrbox: { width: 220, height: 220 },
       },
       (decodedText) => {
-        // عند قراءة الباركود بنجاح
+        if (isProcessingRef.current) return;
+
+        // تحليل النص القادم من الباركود
         if (decodedText.includes(",")) {
           const [name, id] = decodedText.split(",");
           setManualName(name);
@@ -128,12 +141,14 @@ function ScannerPage() {
           verifyGuest(name, id);
         } else {
           setManualName(decodedText);
-          setManualId("ID-" + Math.floor(Math.random() * 10000));
-          verifyGuest(decodedText, "ID-" + Math.floor(Math.random() * 10000));
+          // إذا لم يحتوي الباركود على فاصلة نعتبر النص هو الاسم ورقم عشوائي أو ثابت للتعريف
+          const generatedId = "ID-" + decodedText;
+          setManualId(generatedId);
+          verifyGuest(decodedText, generatedId);
         }
       },
       () => {
-        // أخطاء الإطار المؤقتة أثناء المسح (تُترك فارغة لتفادي تكرار السجلات)
+        // أخطاء الإطار المؤقتة تُترك فارغة لتفادي توقف الكاميرا
       }
     ).catch((err) => {
       console.error("Failed to start scanner", err);
@@ -205,7 +220,7 @@ function ScannerPage() {
               <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
               <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
-                الكاميرا مفعلة، قم بتوجيهها نحو الباركود أو أدخل البيانات يدوياً أدناه.
+                الكاميرا مفعلة تفحص الباركود (يتم تسجيل الضيف مرة واحدة فقط).
               </p>
 
               <div className="space-y-3">
