@@ -1,10 +1,9 @@
 
-Import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import * as React from "react";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { UserCheck, Camera, CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Users } from "lucide-react";
-import jsQR from "jsqr";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({
@@ -17,7 +16,9 @@ export const Route = createFileRoute("/scanner")({
 });
 
 interface LoggedGuest {
+  indexNumber: number;
   name: string;
+  idNumber: string;
   time: string;
 }
 
@@ -28,19 +29,20 @@ function ScannerPage() {
   const [loginError, setLoginError] = React.useState(false);
 
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
-  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const [cameraError, setCameraError] = React.useState<string | null>(null);
 
   const [scanResult, setScanResult] = React.useState<{
     status: "success" | "already_used" | "error" | null;
     message: string;
     guestName?: string;
+    guestId?: string;
+    indexNumber?: number;
   }>({ status: null, message: "" });
 
-  const [manualCode, setManualCode] = React.useState("");
+  const [manualName, setManualName] = React.useState("");
+  const [manualId, setManualId] = React.useState("");
   const lastScannedRef = React.useRef<string | null>(null);
 
-  // قائمة الحضور الذين تم تسجيل دخولهم (تثبيت الأسماء بـ ✅ وعدم حذفها)
   const [enteredGuestsList, setEnteredGuestsList] = React.useState<LoggedGuest[]>([]);
   const enteredGuestsSetRef = React.useRef<Set<string>>(new Set());
 
@@ -54,41 +56,54 @@ function ScannerPage() {
     }
   };
 
-  const verifyGuestCode = async (guestNameInput: string) => {
-    const trimmedName = guestNameInput.trim();
-    if (!trimmedName || lastScannedRef.current === trimmedName) return;
+  const verifyGuest = (nameInput: string, idInput: string) => {
+    const trimmedName = nameInput.trim();
+    const trimmedId = idInput.trim();
     
-    lastScannedRef.current = trimmedName;
+    if (!trimmedName || !trimmedId) return;
+
+    const uniqueKey = `${trimmedId}-${trimmedName}`;
+    if (lastScannedRef.current === uniqueKey) return;
+    
+    lastScannedRef.current = uniqueKey;
     setTimeout(() => { lastScannedRef.current = null; }, 3000);
 
     try {
-      // 1. التحقق هل تم تسجيل الدخول مسبقاً
-      if (enteredGuestsSetRef.current.has(trimmedName)) {
+      if (enteredGuestsSetRef.current.has(trimmedId) || enteredGuestsSetRef.current.has(uniqueKey)) {
         setScanResult({
           status: "already_used",
           message: "تم تسجيل دخول هذا الضيف مسبقاً",
           guestName: trimmedName,
+          guestId: trimmedId,
         });
         return;
       }
 
-      // 2. التحقق من صحة الضيف (محاكاة أو ربط قاعدة البيانات)
-      if (trimmedName === "ساره العتيبي" || trimmedName === "عبدالله السلمان" || trimmedName.length > 2) {
-        enteredGuestsSetRef.current.add(trimmedName);
+      if (trimmedId.length >= 1) {
+        enteredGuestsSetRef.current.add(trimmedId);
+        enteredGuestsSetRef.current.add(uniqueKey);
         
+        const nextIndex = enteredGuestsList.length + 1;
         const currentTime = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-        setEnteredGuestsList((prev) => [{ name: trimmedName, time: currentTime }, ...prev]);
+        
+        setEnteredGuestsList((prev) => [
+          { indexNumber: nextIndex, name: trimmedName, idNumber: trimmedId, time: currentTime },
+          ...prev,
+        ]);
 
         setScanResult({
           status: "success",
           message: "تم تسجيل الدخول بنجاح",
           guestName: trimmedName,
+          guestId: trimmedId,
+          indexNumber: nextIndex,
         });
       } else {
         setScanResult({
           status: "error",
-          message: "رمز الدعوة أو الاسم غير صحيح أو غير مسجل",
+          message: "رقم الهوية أو الاسم غير صحيح",
           guestName: trimmedName,
+          guestId: trimmedId,
         });
       }
 
@@ -96,8 +111,17 @@ function ScannerPage() {
       console.error("Verification error:", err);
       setScanResult({
         status: "error",
-        message: "حدث خطأ أثناء التحقق من قاعدة البيانات",
+        message: "حدث خطأ أثناء التحقق من البيانات",
       });
+    }
+  };
+
+  const handleQrCodeData = (qrData: string) => {
+    if (qrData.includes(",")) {
+      const [name, id] = qrData.split(",");
+      verifyGuest(name, id);
+    } else {
+      verifyGuest(qrData, "1");
     }
   };
 
@@ -105,7 +129,7 @@ function ScannerPage() {
     if (!isAuthenticated) return;
 
     let stream: MediaStream | null = null;
-    let animationFrameId: number;
+    let intervalId: any;
 
     async function startCamera() {
       try {
@@ -116,42 +140,42 @@ function ScannerPage() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
+
+        // استخدام BarcodeDetector المدمج في المتصفح إن توفر
+        if ('BarcodeDetector' in window) {
+          //@ts-ignore
+          const barcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+          
+          intervalId = setInterval(async () => {
+            if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
+              try {
+                const barcodes = await barcodeDetector.detect(videoRef.current);
+                if (barcodes.length > 0 && barcodes[0].rawValue) {
+                  handleQrCodeData(barcodes[0].rawValue);
+                }
+              } catch (e) {
+                // تجاهل أخطاء الإطار المؤقتة
+              }
+            }
+          }, 1000);
+        } else {
+          setCameraError("الكاميرا مفعلة. استخدم الإدخال اليد أدناه للتحقق السريع.");
+        }
       } catch (err) {
         console.error("Camera Error:", err);
-        setCameraError("تعذر الوصول إلى الكاميرا. يرجى التأكد من السماح للمتصفح بالوصول للكاميرا.");
+        setCameraError("تعذر الوصول إلى الكاميرا. يرجى إدخال بيانات الضيف يدوياً.");
       }
     }
 
     startCamera();
 
-    const scanFrame = () => {
-      if (videoRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current || document.createElement("canvas");
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext("2d", { willReadFrequently: true });
-
-        if (ctx) {
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height);
-
-          if (code && code.data) {
-            verifyGuestCode(code.data);
-          }
-        }
-      }
-      animationFrameId = requestAnimationFrame(scanFrame);
-    };
-
-    animationFrameId = requestAnimationFrame(scanFrame);
-
     return () => {
       if (stream) {
         stream.getTracks().forEach((track) => track.stop());
       }
-      cancelAnimationFrame(animationFrameId);
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
     };
   }, [isAuthenticated]);
 
@@ -168,7 +192,7 @@ function ScannerPage() {
 
             <h1 className="text-2xl font-bold">دخول المنظمين</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              يرجى إدخال اسم المستخدم للوصول إلى لوحة الماسح الضوئي.
+              يرجى إدخال اسم المستخدم للوصول إلى لوحة التحقق.
             </p>
 
             <form onSubmit={handleLogin} className="mt-6 space-y-4">
@@ -210,50 +234,49 @@ function ScannerPage() {
                 </button>
               </div>
 
-              {/* شاشة الكاميرا والمسح التلقائي */}
               <div className="relative mx-auto w-full aspect-square max-w-[260px] rounded-2xl bg-black overflow-hidden border-2 border-[color:var(--gold)] flex items-center justify-center">
-                {cameraError ? (
-                  <div className="p-4 text-xs text-rose-400 text-center">
-                    <Camera className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    {cameraError}
-                  </div>
-                ) : (
-                  <>
-                    <video
-                      ref={videoRef}
-                      autoPlay
-                      playsInline
-                      muted
-                      className="w-full h-full object-cover"
-                    />
-                    <canvas ref={canvasRef} className="hidden" />
-                  </>
-                )}
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  className="w-full h-full object-cover"
+                />
               </div>
 
-              {/* التحقق اليدوي الاحتياطي */}
-              <div className="mt-6">
-                <div className="flex gap-2">
+              {cameraError && (
+                <p className="text-xs text-amber-600 mt-2 font-medium">{cameraError}</p>
+              )}
+
+              <div className="mt-6 space-y-3">
+                <div className="flex flex-col gap-2">
                   <input
                     type="text"
-                    value={manualCode}
-                    onChange={(e) => setManualCode(e.target.value)}
-                    placeholder="أدخل اسم الضيف للتحقق..."
+                    value={manualName}
+                    onChange={(e) => setManualName(e.target.value)}
+                    placeholder="اسم الضيف..."
+                    className="w-full rounded-xl border border-[color:var(--gold)]/30 bg-white/70 px-3 py-2 text-center text-sm outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={manualId}
+                    onChange={(e) => setManualId(e.target.value)}
+                    placeholder="رقم الهوية / ID..."
                     className="w-full rounded-xl border border-[color:var(--gold)]/30 bg-white/70 px-3 py-2 text-center text-sm outline-none"
                   />
                   <button
                     onClick={() => {
-                      verifyGuestCode(manualCode);
-                      setManualCode("");
+                      verifyGuest(manualName, manualId);
+                      setManualName("");
+                      setManualId("");
                     }}
-                    className="btn-gold rounded-xl px-4 text-xs font-semibold shrink-0"
+                    className="btn-gold rounded-xl py-2.5 text-xs font-semibold w-full"
                   >
-                    تحقق
+                    تحقق وتسجيل الدخول
                   </button>
                 </div>
               </div>
 
-              {/* نتيجة التحقق الحالية */}
               {scanResult.status && (
                 <div
                   className={`mt-6 rounded-2xl p-4 text-right transition-all ${
@@ -277,8 +300,16 @@ function ScannerPage() {
 
                     <div>
                       <p className="font-bold text-sm">{scanResult.message}</p>
+                      {scanResult.indexNumber && (
+                        <p className="text-xs mt-1 font-semibold text-[color:var(--gold)]">
+                          الرقم التسلسلي: {scanResult.indexNumber}
+                        </p>
+                      )}
                       {scanResult.guestName && (
-                        <p className="text-xs mt-1">الضيف: {scanResult.guestName}</p>
+                        <p className="text-xs mt-0.5">الضيف: {scanResult.guestName}</p>
+                      )}
+                      {scanResult.guestId && (
+                        <p className="text-xs mt-0.5">رقم الهوية (ID): {scanResult.guestId}</p>
                       )}
                     </div>
                   </div>
@@ -286,7 +317,6 @@ function ScannerPage() {
               )}
             </div>
 
-            {/* قائمة الحضور المسجلين (تثبيت الأسماء بـ ✅ وعدم حذفها) */}
             <div className="glass rounded-3xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-[color:var(--gold)]/20">
                 <h3 className="font-bold text-sm flex items-center gap-2 text-[color:var(--gold)]">
@@ -298,12 +328,17 @@ function ScannerPage() {
               {enteredGuestsList.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-4">لم يتم تسجيل أي حضور حتى الآن</p>
               ) : (
-                <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                  {enteredGuestsList.map((guest, index) => (
-                    <div key={index} className="flex items-center justify-between bg-white/60 p-2.5 rounded-xl border border-emerald-500/20 text-right">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                        <span className="text-xs font-bold text-gray-800">{guest.name}</span>
+                <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                  {enteredGuestsList.map((guest) => (
+                    <div key={guest.indexNumber} className="flex items-center justify-between bg-white/60 p-3 rounded-xl border border-emerald-500/20 text-right">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-[color:var(--gold)]/20 text-[color:var(--gold)] text-xs font-bold shrink-0">
+                          {guest.indexNumber}
+                        </span>
+                        <div>
+                          <p className="text-xs font-bold text-gray-800">{guest.name}</p>
+                          <p className="text-[10px] text-muted-foreground">ID: {guest.idNumber}</p>
+                        </div>
                       </div>
                       <span className="text-[10px] text-muted-foreground">{guest.time}</span>
                     </div>
