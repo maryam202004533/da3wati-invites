@@ -5,6 +5,7 @@ import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
 import { UserCheck, CheckCircle2, XCircle, AlertTriangle, ShieldCheck, Users } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/scanner")({
   head: () => ({
@@ -56,12 +57,12 @@ function ScannerPage() {
     }
   };
 
-  // دالة التحقق المرتبطة بقاعدة البيانات
+  // دالة التحقق الحقيقية عبر Supabase
   const verifyGuest = async (nameInput: string, idInput: string) => {
     const trimmedName = nameInput.trim();
     const trimmedId = idInput.trim();
     
-    if (!trimmedName || !trimmedId) return;
+    if (!trimmedName && !trimmedId) return;
 
     if (isProcessingRef.current) return;
     isProcessingRef.current = true;
@@ -71,51 +72,58 @@ function ScannerPage() {
     }, 2500);
 
     try {
-      // TODO: استبدل هذا الجزء بالاتصال الفعلي بقاعدة البيانات (مثلاً عبر API أو استعلام جلب البيانات)
-      // مثال: const response = await fetch(`/api/check-guest?id=${trimmedId}`);
-      // const guestData = await response.json();
+      // 1. الاستعلام من جدول قاعدة البيانات في Supabase (تأكد أن اسم الجدول guests أو قم بتعديله حسب جدولك)
+      let query = supabase.from("guests").select("*");
       
-      // محاكاة استعلام قاعدة البيانات (البحث بناءً على البيانات القادمة من الباركود أو الإدخال)
-      const isRegisteredInDatabase = true; // اجعلها تتصل بقاعدة بياناتك الفعلية هنا
+      if (trimmedId) {
+        query = query.or(`id_number.eq.${trimmedId},name.ilike.%${trimmedName}%`);
+      } else {
+        query = query.ilike("name", `%${trimmedName}%`);
+      }
 
-      if (!isRegisteredInDatabase) {
+      const { data, error } = await query;
+
+      if (error || !data || data.length === 0) {
         setScanResult({
           status: "error",
-          message: `عذراً (${trimmedName})، غير مدعوة وليست موجودة في قاعدة البيانات!`,
+          message: `عذراً (${trimmedName || "هذا الشخص"})، غير مدعو وليس موجوداً في قاعدة البيانات!`,
           guestName: trimmedName,
           guestId: trimmedId,
         });
         return;
       }
 
-      const uniqueKey = trimmedId;
+      const guestRecord = data[0];
+      const guestName = guestRecord.name || trimmedName;
+      const guestId = guestRecord.id_number || guestRecord.id || trimmedId;
+      const uniqueKey = String(guestId);
 
-      // 2. التحقق هل تم تسجيل دخول هذا الضيف من قبل
+      // 2. التحقق هل تم تسجيل دخول هذا الضيف من قبل في الجلسة الحالية
       if (enteredGuestsSetRef.current.has(uniqueKey)) {
         setScanResult({
           status: "already_used",
-          message: `تم تسجيل دخول (${trimmedName}) مسبقاً ولا يمكن تكراره`,
-          guestName: trimmedName,
+          message: `تم تسجيل دخول (${guestName}) مسبقاً ولا يمكن تكراره`,
+          guestName: guestName,
           guestId: uniqueKey,
         });
         return;
       }
 
-      // 3. إذا كانت مسجلة في قاعدة البيانات ولم تدخل من قبل، يتم تسجيل دخولها بنجاح
+      // 3. إذا وجد في قاعدة البيانات ولم يدخل من قبل، يسجل بنجاح
       enteredGuestsSetRef.current.add(uniqueKey);
       
       const nextIndex = enteredGuestsList.length + 1;
       const currentTime = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
       
       setEnteredGuestsList((prev) => [
-        { indexNumber: nextIndex, name: trimmedName, idNumber: uniqueKey, time: currentTime },
+        { indexNumber: nextIndex, name: guestName, idNumber: uniqueKey, time: currentTime },
         ...prev,
       ]);
 
       setScanResult({
         status: "success",
-        message: `تم تسجيل دخول (${trimmedName}) بنجاح`,
-        guestName: trimmedName,
+        message: `تم تسجيل دخول (${guestName}) بنجاح`,
+        guestName: guestName,
         guestId: uniqueKey,
         indexNumber: nextIndex,
       });
@@ -151,9 +159,8 @@ function ScannerPage() {
           verifyGuest(name, id);
         } else {
           setManualName(decodedText);
-          const generatedId = "ID-" + decodedText;
-          setManualId(generatedId);
-          verifyGuest(decodedText, generatedId);
+          setManualId("");
+          verifyGuest(decodedText, "");
         }
       },
       () => {}
@@ -226,7 +233,7 @@ function ScannerPage() {
               <div id="reader-container" className="mx-auto w-full max-w-[280px] rounded-2xl overflow-hidden border-2 border-[color:var(--gold)] bg-black mb-4"></div>
 
               <p className="text-xs text-[color:var(--gold)] font-medium mb-4">
-                الكاميرا مفعلة (التحقق الفوري من قاعدة البيانات ومنع التكرار).
+                الكاميرا مفعلة (يتم البحث في قاعدة بيانات Supabase مباشرة).
               </p>
 
               <div className="space-y-3">
@@ -235,14 +242,14 @@ function ScannerPage() {
                     type="text"
                     value={manualName}
                     onChange={(e) => setManualName(e.target.value)}
-                    placeholder="اسم الضيف..."
+                    placeholder="اسم الضيف (مثل: سارة صالح)..."
                     className="w-full rounded-xl border border-[color:var(--gold)]/30 bg-white/90 px-3 py-2.5 text-center text-sm outline-none text-black font-medium"
                   />
                   <input
                     type="text"
                     value={manualId}
                     onChange={(e) => setManualId(e.target.value)}
-                    placeholder="رقم الهوية / ID..."
+                    placeholder="رقم الهوية / ID (اختياري)..."
                     className="w-full rounded-xl border border-[color:var(--gold)]/30 bg-white/90 px-3 py-2.5 text-center text-sm outline-none text-black font-medium"
                   />
                   <button
