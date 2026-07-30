@@ -46,7 +46,6 @@ function ScannerPage() {
   const [manualId, setManualId] = React.useState("");
   const lastScannedRef = React.useRef<string | null>(null);
 
-  // قائمة الحضور الذين تم تسجيل دخولهم مع الرقم التسلسلي (1، 2، 3...)
   const [enteredGuestsList, setEnteredGuestsList] = React.useState<LoggedGuest[]>([]);
   const enteredGuestsSetRef = React.useRef<Set<string>>(new Set());
 
@@ -73,7 +72,6 @@ function ScannerPage() {
     setTimeout(() => { lastScannedRef.current = null; }, 3000);
 
     try {
-      // 1. التحقق هل تم تسجيل الدخول مسبقاً برقم الهوية أو الاسم
       if (enteredGuestsSetRef.current.has(trimmedId) || enteredGuestsSetRef.current.has(uniqueKey)) {
         setScanResult({
           status: "already_used",
@@ -84,7 +82,6 @@ function ScannerPage() {
         return;
       }
 
-      // 2. التحقق من صحة الضيف (يمكن ربطه بقاعدة بيانات Supabase لاحقاً)
       if (trimmedId.length >= 1) {
         enteredGuestsSetRef.current.add(trimmedId);
         enteredGuestsSetRef.current.add(uniqueKey);
@@ -122,14 +119,12 @@ function ScannerPage() {
     }
   };
 
-  // دالة تحليل بيانات الباركود في حال كان الباركود يحتوي على الاسم ورقم الهوية مفصولين بفاصلة أو شرطة
   const handleQrCodeData = (qrData: string) => {
-    // مثال لبيانات الباركود: "ساره العتيبي,1092837465" أو بناءً على التنسيق المعتمد
     if (qrData.includes(",")) {
       const [name, id] = qrData.split(",");
       verifyGuest(name, id);
     } else {
-      verifyGuest(qrData, "1"); // افتراضي في حال كان المدخل مجرد رقم هوية أو اسم
+      verifyGuest(qrData, "1");
     }
   };
 
@@ -242,7 +237,6 @@ function ScannerPage() {
                 </button>
               </div>
 
-              {/* شاشة الكاميرا والمسح */}
               <div className="relative mx-auto w-full aspect-square max-w-[260px] rounded-2xl bg-black overflow-hidden border-2 border-[color:var(--gold)] flex items-center justify-center">
                 {cameraError ? (
                   <div className="p-4 text-xs text-rose-400 text-center">
@@ -263,7 +257,6 @@ function ScannerPage() {
                 )}
               </div>
 
-              {/* التحقق اليدوي بالاسم ورقم الهوية ID */}
               <div className="mt-6 space-y-3">
                 <div className="flex flex-col gap-2">
                   <input
@@ -293,7 +286,6 @@ function ScannerPage() {
                 </div>
               </div>
 
-              {/* نتيجة التحقق */}
               {scanResult.status && (
                 <div
                   className={`mt-6 rounded-2xl p-4 text-right transition-all ${
@@ -334,7 +326,6 @@ function ScannerPage() {
               )}
             </div>
 
-            {/* سجل الحاضرين مع الأرقام التسلسلية (1، 2، 3...) */}
             <div className="glass rounded-3xl p-6 shadow-xl">
               <div className="flex items-center justify-between mb-4 pb-2 border-b border-[color:var(--gold)]/20">
                 <h3 className="font-bold text-sm flex items-center gap-2 text-[color:var(--gold)]">
